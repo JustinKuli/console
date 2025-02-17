@@ -47,7 +47,7 @@ const Governance = lazy(() => import('./routes/Governance/Governance'))
 // APPLICATIONS
 const Applications = lazy(() => import('./routes/Applications/Applications'))
 
-// CREDENTIALS
+// CREDENTIAkookLS
 const Credentials = lazy(() => import('./routes/Credentials/Credentials'))
 
 interface IRoute {
