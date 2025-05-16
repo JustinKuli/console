@@ -51,7 +51,7 @@ export interface DiscoveredPolicyItem {
   validationFailureAction?: string
 }
 
-export interface DiscoverdPolicyTableItem {
+export interface DiscoveredPolicyTableItem {
   id: string
   name: string
   severity: string
@@ -65,7 +65,8 @@ export interface DiscoverdPolicyTableItem {
 // If id (`policyName` + `policyKind` + `apiGroup`) exists, it returns a filtered `DiscoveredPolicyTable` based on `clusterName`.
 export function useFetchPolicies(policyName?: string, policyKind?: string, apiGroup?: string) {
   const [isFetching, setIsFetching] = useState(true)
-  const [data, setData] = useState<DiscoverdPolicyTableItem[]>()
+  const [policyItems, setPolicyItems] = useState<DiscoveredPolicyTableItem[]>()
+  const [relatedResources, setRelatedResources] = useState<any[]>()
   const [labelData, setLabelData] = useState<{
     labelOptions: { label: string; value: string }[]
     labelMap: Record<string, { pairs: Record<string, string>; labels: string[] }>
@@ -76,6 +77,19 @@ export function useFetchPolicies(policyName?: string, policyKind?: string, apiGr
   const channels = useRecoilValue(channelsState)
 
   let searchQuery: SearchInput[]
+
+  const discoveredRelatedKinds = (apiGroup: string, kind: string) => {
+    if (apiGroup === 'kyverno.io') {
+      return ['ClusterPolicyReport', 'PolicyReport']
+    }
+
+    if (kind == 'CertificatePolicy') {
+      return ['Secret']
+    }
+
+    // returns all
+    return []
+  }
 
   // `relatedKinds: ['$DO-NOT-RETURN']` is a workaround to not return related items since they aren't needed in those
   // parts of the query and no kind will ever match $DO-NOT-RETURN. Setting null or an empty list returns all
@@ -97,7 +111,7 @@ export function useFetchPolicies(policyName?: string, policyKind?: string, apiGr
             values: [policyKind],
           },
         ],
-        relatedKinds: apiGroup === 'kyverno.io' ? ['ClusterPolicyReport', 'PolicyReport'] : ['$DO-NOT-RETURN'],
+        relatedKinds: discoveredRelatedKinds(apiGroup, policyKind),
         limit: 100000,
       },
     ]
@@ -184,25 +198,13 @@ export function useFetchPolicies(policyName?: string, policyKind?: string, apiGr
       setIsFetching(false)
     }
 
-    let searchDataItems: any[] = []
-    let kyvernoPolicyReports: any[] = []
-
-    searchData?.searchResult?.forEach((result) => {
-      searchDataItems = searchDataItems.concat(result?.items || [])
-      if (result?.items?.[0]?.apigroup === 'kyverno.io') {
-        result.related?.forEach((related) => {
-          if (['PolicyReport', 'ClusterPolicyReport'].includes(related?.kind ?? ''))
-            kyvernoPolicyReports = kyvernoPolicyReports.concat(related?.items || [])
-        })
-      }
-    })
-
-    if (searchDataItems.length == 0 && !searchErr && !searchLoading) {
-      setData([])
+    if (searchData?.searchResult?.length == 0 && !searchErr && !searchLoading) {
+      setPolicyItems([])
+      setRelatedResources([])
       setIsFetching(false)
     }
 
-    if (searchDataItems.length !== 0 && !searchErr && !searchLoading) {
+    if (searchData?.searchResult?.length !== 0 && !searchErr && !searchLoading) {
       const dataObj = '(' + grouping + ')();'
       // for firefox
       const blob = new Blob([dataObj.replace('"use strict";', '')], { type: 'application/javascript' })
@@ -211,15 +213,15 @@ export function useFetchPolicies(policyName?: string, policyKind?: string, apiGr
       const worker = new Worker(blobURL)
 
       worker.onmessage = (e: MessageEvent<any>) => {
-        const parsedData = parseDiscoveredPolicies(e.data) as DiscoverdPolicyTableItem[]
-        setData(parsedData)
+        const parsedData = parseDiscoveredPolicies(e.data.policyItems) as DiscoveredPolicyTableItem[]
+        setPolicyItems(parsedData)
+        setRelatedResources(e.data.relatedResources)
         setLabelData(parseDiscoveredPolicyLabels(parsedData))
         setIsFetching(false)
       }
 
       worker.postMessage({
-        data: searchDataItems,
-        kyvernoPolicyReports,
+        data: searchData,
         subscriptions,
         helmReleases,
         channels,
@@ -245,5 +247,5 @@ export function useFetchPolicies(policyName?: string, policyKind?: string, apiGr
     channels,
   ])
 
-  return { isFetching, data, err: searchErr, labelData }
+  return { isFetching, policyItems, relatedResources, err: searchErr, labelData }
 }
