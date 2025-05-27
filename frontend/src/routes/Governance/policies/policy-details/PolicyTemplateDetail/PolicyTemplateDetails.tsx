@@ -25,12 +25,7 @@ import { useTemplateDetailsContext } from './PolicyTemplateDetailsPage'
 import { useParams } from 'react-router-dom-v5-compat'
 import { getEngineWithSvg } from '../../../common/util'
 import { useFetchKyvernoRelated, useFetchVapb, useFetchOnlyRelatedResources } from './PolicyTemplateDetailHooks'
-import {
-  addRowsForConstraint,
-  addRowsForHasVapb,
-  addRowsForOperatorPolicy,
-  addRowsForVapb,
-} from './PolicyTemplateDetailsColumns'
+import { addRowsForHasVapb, addRowsForOperatorPolicy, addRowsForVapb } from './PolicyTemplateDetailsColumns'
 import { KyvernoRelatedResources } from './KyvernoRelatedResources'
 
 export function PolicyTemplateDetails() {
@@ -153,8 +148,6 @@ export function PolicyTemplateDetails() {
         ...cols.slice(1),
       ]
     }
-
-    addRowsForConstraint(cols, clusterName, apiGroup, kind)
 
     addRowsForHasVapb(cols, hasVapb, vapb.loading, vapb.vapbItems, apiGroup, clusterName, name)
 
